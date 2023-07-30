@@ -41,6 +41,7 @@ def main():
     cmdline = " ".join(kernel["argv"])
     kernel["argv"] = [
         "nix-shell",
+        "--pure",
         opts.nix_shell,
         "--argstr",
         "cmd",
