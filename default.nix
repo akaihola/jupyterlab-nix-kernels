@@ -2,67 +2,47 @@
 #
 # $ nix-shell all-pythons.nix
 #
-# Installing kernels for virtualenvs:
+# Installing kernels for nix-shell environments which use a virtualenv:
 #
-# $ ~/.virtualenvs/myvenv/bin/activate
-# $ pip install ipykernel
-# $ VENVNAME=${VIRTUAL_ENV##*/}
-# $ KRNLPTH=~/.local/share/jupyter/kernels/$VENVNAME/kernel.json
-# $ python -m ipykernel install \
-#     --user \
-#     --name $VENVNAME \
-#     --env VIRTUAL_ENV $VIRTUAL_ENV \
-#     --env PATH $VIRTUAL_ENV/bin:$PATH
-# $ jq '.argv |= ["steam-run"] + .' $KRNLPTH | sponge $KRNLPTH
-#
-
-# { pkgs ? import <nixpkgs> {}, pythonPackages ? pkgs.python39Packages }:
-# (
-#   pkgs.buildFHSUserEnv {
-#     name = "jupyter";
-#     targetPkgs = pkgs: (with pkgs; [
-#       (python39.withPackages (ps: with ps; [
-#         python
-#         ipykernel
-#         jupyterlab
-#         pip
-#       ]))
-#       (python310.withPackages (ps: with ps; [
-#         python
-#       ]))
-#     ]);
-
-#     # Automatically run jupyter when entering the shell.
-#     runScript = "
-#       cd ${builtins.toString ./.}
-#       jupyter lab
-#     ";
-#   }
-# ).env
+# $ cd ~/myproject
+# $ nix-shell default.nix
+# $ pip install ipykernel ipython_genutils
+# $ ~/prg/jupyterlab/add_kernel.py
 
 { pkgs ? import <nixpkgs> {}, cmd ? "jupyter lab -y" }:
+# { pkgs ? import <nixpkgs> {}, cmd ? "python -Xfrozen_modules=off -m jupyterlab -y" }:
 
 (
   let
     rootdir = builtins.toString ./.;
     project = builtins.baseNameOf ./.;
     home = builtins.getEnv "HOME";
+    venv = "${home}/.virtualenvs/" + project;
   in
     pkgs.buildFHSUserEnv {
       name = project;
       targetPkgs = pkgs: (with pkgs; [
-        # Defines a python + set of packages.
-        (python39.withPackages (ps: with ps; with python39Packages; [
+        chromium
+        pandoc
+        (python311.withPackages (ps: with ps; with python311Packages; [
+          #    ipykernel
+          #    jupyterlab
+          #    nbconvert
+          #    pip
+        ]))
+        (python310.withPackages (ps: with ps; with python310Packages; [
           ipykernel
           jupyterlab
+          nbconvert
+          nodejs
           pip
         ]))
-        (python38.withPackages (ps: with ps; with python38Packages; [
+        (python39.withPackages (ps: with ps; with python39Packages; [
           #   ipykernel
           #   jupyterlab
           #   pip
         ]))
-        (python310.withPackages (ps: with ps; with python310Packages; [
+        (python38.withPackages (ps: with ps; with python38Packages; [
           #   ipykernel
           #   jupyterlab
           #   pip
@@ -80,8 +60,13 @@
       ]);
 
       runScript = "
-        cd ${builtins.toString ./.}
-        ${cmd}
+      cd ${rootdir}
+      [[ -d ${venv} ]] || (
+        python3.11 -m venv ${venv}
+        ${venv}/bin/pip install dataframe-image
+      )
+      . ${venv}/bin/activate
+      ${cmd}
       ";
     }
 ).env
